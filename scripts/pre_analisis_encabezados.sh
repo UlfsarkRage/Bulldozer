@@ -4,7 +4,6 @@
 # SCRIPT: pre_analisis_encabezados.sh
 # ALIAS: PRE_ANALISIS_ENCABEZADOS
 # FUNCION: Verifica la configuración de Encabezados (Headers) de Seguridad HTTP.
-# REQUIERE: curl, gcloud y gemini CLI.
 # =========================================================================
 
 # --- 1. Requerir Argumento (URL) ---
@@ -15,42 +14,75 @@ if [ -z "$1" ]; then
     exit 1
 fi
 
-# Definición de variables en español
+# --- Variables de Configuración y Archivos ---
 URL_OBJETIVO="$1"
+FECHA_HORA=$(date +"%Y%m%d_%H%M%S")
 ARCHIVO_SALIDA_TEMPORAL="headers_output_temp.txt"
+ARCHIVO_LIMPIO="${ARCHIVO_SALIDA_TEMPORAL}.clean"
+ARCHIVO_REPORTE="resultados/REPORTE_ENCABEZADOS_${FECHA_HORA}.txt"
+
+# --- RUTA CORREGIDA DEL BINARIO GCLOUD (CRÍTICO) ---
+GCLOUD_BIN="/home/unknown_ronin/google-cloud-sdk/bin/gcloud"
+PROJECT_ID="$(${GCLOUD_BIN} config get-value project)"
+REGION="us-central1"
 
 echo " "
 echo "--- 🔎 Ejecutando prueba de 'PRE_ANALISIS_ENCABEZADOS' en: ${URL_OBJETIVO} ---"
 
 # --- 2. Ejecutar la prueba de seguridad (curl) ---
-# '-I': Solo obtiene los encabezados.
-# '-s': Modo silencioso (no muestra la barra de progreso ni errores).
-# '-k': Permite conexiones SSL no válidas/autofirmadas (útil para entornos de desarrollo local).
-# '2>/dev/null': Redirige los errores de curl (salida 2) a un lugar vacío para limpiar la terminal.
 curl -I -s -k "${URL_OBJETIVO}" > "${ARCHIVO_SALIDA_TEMPORAL}" 2>/dev/null
 
-# Verificación de errores básicos
 if [ $? -ne 0 ]; then
     echo "❌ Error al ejecutar curl. Verifica la URL o la conexión."
-    rm -f "${ARCHIVO_SALIDA_TEMPORAL}" # Limpia el archivo temporal si existe
+    rm -f "${ARCHIVO_SALIDA_TEMPORAL}"
     exit 1
 fi
 
-# --- 3. Definir y Ejecutar el Prompt a Gemini ---
+# --- LIMPIEZA CRÍTICA DE DATOS ---
+cat "${ARCHIVO_SALIDA_TEMPORAL}" | tr -d '\n\r"' > "${ARCHIVO_LIMPIO}"
+
+# --- 3. Definir y Ejecutar el Prompt a Gemini (usando cURL/API REST) ---
 echo " "
 echo "🤖 Enviando datos a Gemini para análisis..."
 
-# El prompt es CRÍTICO: debe ser específico para asegurar una respuesta de calidad.
-# Pedimos: 1) Análisis de riesgos y 2) Soluciones específicas de configuración (Nginx/Apache).
-PROMPT="Soy un desarrollador web. Analiza los siguientes encabezados HTTP que capturé de la URL ${URL_OBJETIVO}. 1) Explica si hay riesgos de seguridad (e.g., falta de HSTS, X-Content-Type-Options, versiones de servidor). 2) Proporciona las directivas de configuración exactas para Nginx y Apache para solucionar los problemas y añadir encabezados de seguridad faltantes. Los encabezados están en el archivo adjunto:"
+PROMPT="Eres un experto en ciberseguridad que genera reportes ejecutivos e intuitivos. Analiza los siguientes encabezados HTTP que capturé de la URL ${URL_OBJETIVO}. Tu respuesta debe ser una lista de chequeo concisa. Para cada encabezado de seguridad clave (Content-Security-Policy, X-Frame-Options, HSTS, X-XSS-Protection, Cookies), indica: 1) Su estado (OK, FALTANTE, A MEJORAR, RIESGO). 2) Una explicación de una línea. 3) Una recomendación de acción de una línea. La respuesta DEBE empezar con el encabezado # CHECKLIST DE SEGURIDAD. Responde únicamente con el reporte formateado de lista concisa en lenguaje natural y humanizado:"
 
-# Ejecutar Gemini CLI: utiliza --file para adjuntar la salida del escaneo (el archivo temporal).
-gemini generate --prompt "${PROMPT}" --file "${ARCHIVO_SALIDA_TEMPORAL}"
+# 3.1 Ejecutar CURL y guardar la respuesta JSON en una variable
+JSON_RESPONSE=$(curl -s -X POST \
+  -H "Authorization: Bearer $(${GCLOUD_BIN} auth print-access-token)" \
+  -H "Content-Type: application/json" \
+  "https://${REGION}-aiplatform.googleapis.com/v1/projects/${PROJECT_ID}/locations/${REGION}/publishers/google/models/gemini-2.5-flash:generateContent" \
+  -d @- << EOF
+{
+  "contents": [
+    {
+      "role": "user",
+      "parts": [
+        {"text": "${PROMPT}"},
+        {"text": "Data:\n$(cat ${ARCHIVO_LIMPIO})"}
+      ]
+    }
+  ]
+}
+EOF
+)
 
-# --- 4. Limpieza ---
-# Eliminar el archivo temporal
-rm -f "${ARCHIVO_SALIDA_TEMPORAL}"
+# 3.2 Extraer el texto de la respuesta JSON usando jq
+TEXTO_REPORTE=$(echo "${JSON_RESPONSE}" | jq -r '.candidates[0].content.parts[0].text')
+
+# 4. Generar el Archivo de Reporte
+echo "--- 📝 GENERANDO REPORTE: ${ARCHIVO_REPORTE} ---"
+
+# El reporte es el texto limpio de Gemini
+echo "${TEXTO_REPORTE}" > "${ARCHIVO_REPORTE}"
+
+# Imprimir el análisis final al usuario
+echo "--- ✅ Análisis de Gemini (Resumen) ---"
+echo "${TEXTO_REPORTE}"
+
+# --- 5. Limpieza ---
+rm -f "${ARCHIVO_SALIDA_TEMPORAL}" "${ARCHIVO_LIMPIO}"
 
 echo " "
 echo "---------------------------------------------------------"
-echo "✅ Prueba de encabezados finalizada."
+echo "✅ Prueba de encabezados finalizada. Reporte guardado."

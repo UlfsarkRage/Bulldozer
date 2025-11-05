@@ -1,0 +1,14 @@
+# Archivos temporales de los scripts de Bulldozer
+*_temp.txt
+headers_output_temp.txt
+nmap_output_temp.txt
+
+# Directorio de reportes generados
+resultados/
+
+# Directorios y archivos de VS Code
+.vscode/
+
+# Logs y paquetes
+*.log
+*.zip

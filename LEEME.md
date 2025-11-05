@@ -1,59 +1,76 @@
 # 🛠️ Proyecto Bulldozer: Suite de Pre-Pentesting Asistido por Gemini
 
 ## 🎯 Objetivo
-"Bulldozer" es una herramienta que automatiza pruebas de penetración básicas (pre-pentesting) y utiliza la Interfaz de Línea de Comandos (CLI) de Google Gemini para analizar los resultados, explicar vulnerabilidades y sugerir soluciones de código concretas.
-
-Diseñado para desarrolladores web que buscan incorporar la seguridad en el ciclo de despliegue (DevSecOps).
-
-## 🚀 Requisitos
-
-Para ejecutar "Bulldozer", necesitas:
-
-1.  **Entorno:** Windows con **WSL2** instalado (idealmente con una distribución Ubuntu).
-2.  **Editor:** **VS Code** con la extensión "Remote - WSL".
-3.  **Herramientas Linux:**
-    * **`curl`**: Para peticiones HTTP.
-    * **`nmap`**: Para escaneo de puertos.
-4.  **CLI de Google Cloud:**
-    * **`gcloud`** y **`gemini`**: Para invocar el modelo de IA.
-        * **Autenticación:** Asegúrate de estar autenticado en tu terminal de WSL con `gcloud auth login` o `gcloud auth application-default login`.
-
-## 📂 Estructura del Repositorio
-
-Bulldozer/ ├── scripts/ │ ├── pre_analisis_encabezados.sh # Verifica la seguridad de los Headers HTTP. │ └── pre_analisis_puertos.sh # Escanea y analiza puertos comunes con nmap. ├── documentacion/ └── LEEME.md
-
-## 📝 Uso de la Herramienta
-
-Todos los scripts se ejecutan desde la terminal de Bash dentro de WSL, pasando la URL objetivo como el primer argumento.
-
-### 1. Análisis de Encabezados (Headers)
-
-```bash
-./scripts/pre_analisis_encabezados.sh [URL_COMPLETA] 
-Ejemplo: ./scripts/pre_analisis_encabezados.sh https://localhost:8080
-
-### 2. Análisis de Puertos Abiertos
-```bash
-./scripts/pre_analisis_puertos.sh [DOMINIO_O_IP]
-
-Ejemplo: ./scripts/pre_analisis_puertos.sh 127.0.0.1
+"Bulldozer" es una herramienta de automatización que combina la potencia de herramientas de seguridad estándar de Linux (`curl`, `nmap`) con la capacidad de análisis de **Google Gemini**. Su principal función es tomar la salida técnica de estas herramientas, analizar las vulnerabilidades, y generar **reportes intuitivos y humanizados** para desarrolladores o usuarios no técnicos.
 
 ---
 
-## 📄 Archivo 2: `.gitignore`
+## 🚀 Requisitos e Instalación (Paso a Paso Obligatorio)
 
-Este archivo asegura que los archivos temporales y la configuración de VS Code no se suban al repositorio.
+Esta herramienta requiere un entorno Linux (idealmente WSL2 con Ubuntu) y varias dependencias clave de Google Cloud y del sistema. **El orden es importante.**
 
-```gitignore
-# Archivos temporales de los scripts de Bulldozer
-*_temp.txt
-headers_output_temp.txt
-puertos_output_temp.txt
+### 1. Preparación del Entorno Linux (WSL)
 
-# Directorios y archivos de VS Code
-.vscode/
+Abre tu terminal de WSL (ej: Ubuntu) y asegúrate de que todas las librerías necesarias estén instaladas.
 
-# Logs y paquetes
-*.log
-*.zip
+| Dependencia | Comando de Instalación | Propósito |
+| :--- | :--- | :--- |
+| **`curl`** | `sudo apt install curl` | Necesario para realizar peticiones HTTP y comunicarse con la API de Gemini. |
+| **`nmap`** | `sudo apt install nmap` | Herramienta esencial para el escaneo de puertos. |
+| **`jq`** | `sudo apt install jq` | **CRÍTICO.** Necesario para extraer y limpiar la respuesta JSON de Gemini, mostrando solo el texto legible (Markdown). |
+
+### 2. Configuración de Google Cloud CLI (gcloud)
+
+El script de Bulldozer utiliza el binario de `gcloud` para la autenticación y el token de acceso.
+
+1.  **Instalar el SDK de Google Cloud:** Sigue la guía oficial de Google para instalar el Cloud SDK en Linux.
+2.  **Autenticación:** Ejecuta el comando para autenticar tu cuenta de usuario y establecer el proyecto predeterminado:
+    ```bash
+    gcloud auth application-default login
+    ```
+3.  **Habilitar la API de Gemini:** Asegúrate de que la API esté activada en tu proyecto de Google Cloud (esto también requiere que la facturación esté habilitada en tu cuenta).
+    ```bash
+    gcloud services enable aiplatform.googleapis.com
+    ```
+4.  **Ajustar la Ruta del Binario:** Si instalaste `gcloud` localmente, la ruta en los scripts de Bulldozer (`pre_analisis_encabezados.sh` y `pre_analisis_puertos.sh`) debe ser actualizada a la ubicación real de tu binario `gcloud`. (Nuestra conversación resolvió que tu ruta es `/home/unknown_ronin/google-cloud-sdk/bin/gcloud`).
+
+---
+
+## 📂 Estructura y Función de los Scripts
+
+El proyecto se organiza en un directorio principal (`Bulldozer/`) y una carpeta de *scripts*. Los reportes finales se almacenan en la carpeta `resultados/`.
+
+| Archivo | Función |
+| :--- | :--- |
+| **`ejecutar_todo.sh`** | **Script de control maestro.** Ejecuta secuencialmente `pre_analisis_encabezados.sh` y `pre_analisis_puertos.sh`. |
+| **`pre_analisis_encabezados.sh`** | Usa **`curl`** para obtener los encabezados HTTP y los envía a Gemini para el análisis de seguridad y la generación del reporte. |
+| **`pre_analisis_puertos.sh`** | Usa **`nmap -F`** para escanear los 100 puertos TCP más comunes y envía el resultado a Gemini para el análisis de riesgos. |
+| **`resultados/`** | Directorio que almacena los archivos de reporte (`.txt`) generados por Gemini. Cada archivo es concatenado con la fecha y hora para evitar sobreescritura. |
+
+---
+
+## 📝 Uso de la Herramienta (Comando Final)
+
+Una vez que todas las dependencias y la autenticación estén configuradas, ejecuta el script maestro `ejecutar_todo.sh` pasando los dos argumentos requeridos en orden: la URL para los encabezados y la IP/Dominio para el escaneo de puertos.
+
+```bash
+# SINTAXIS: ./scripts/ejecutar_todo.sh [URL_COMPLETA_HTTPS] [IP_O_DOMINIO]
+ 
+./scripts/ejecutar_todo.sh [https://www.google.com](https://www.google.com) 127.0.0.1
+
+
+
+
+---------------
+Resultados
+La terminal mostrará un resumen ejecutivo del análisis de encabezados y puertos generado por Gemini.
+
+Se generarán dos archivos .txt en la carpeta resultados/ con los nombres:
+
+REPORTE_ENCABEZADOS_YYYYMMDD_HHMMSS.txt
+
+REPORTE_PUERTOS_YYYYMMDD_HHMMSS.txt
+
+Estos archivos contienen el análisis completo en formato de lista de chequeo concisa y en lenguaje natural.
+
 

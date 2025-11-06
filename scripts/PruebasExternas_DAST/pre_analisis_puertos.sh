@@ -25,11 +25,31 @@ GCLOUD_BIN="/home/unknown_ronin/google-cloud-sdk/bin/gcloud"
 PROJECT_ID="$(${GCLOUD_BIN} config get-value project)"
 REGION="us-central1"
 
+# =================================================================
+# BLOQUE DE VERIFICACIÓN DE CREDENCIALES (FUERZA LA RENOVACIÓN)
+# =================================================================
+if ! "${GCLOUD_BIN}" auth print-access-token > /dev/null 2>&1; then
+    echo " "
+    echo "🚨 ERROR: Las credenciales de Google Cloud han expirado o faltan."
+    echo "🚨 Acción: Forzando la re-autenticación (Esto abrirá un navegador)."
+    
+    # Intenta forzar una nueva autenticación de credenciales de aplicación
+    "${GCLOUD_BIN}" auth application-default login --scopes=https://www.googleapis.com/auth/cloud-platform
+    
+    if [ $? -ne 0 ]; then
+        echo "❌ ERROR FATAL: Falló la re-autenticación. Revise su conexión o permisos."
+        exit 1
+    fi
+    echo "✅ Autenticación renovada con éxito."
+    echo " "
+fi
+# =================================================================
+
 echo " "
 echo "--- 🔎 Ejecutando prueba de 'PRE_ANALISIS_PUERTOS' en: ${OBJETIVO} ---"
 
 # --- 2. Ejecutar la prueba de seguridad (Nmap) ---
-nmap -F "${OBJETIVO}" -oN "${ARCHIVO_SALIDA_TEMPORAL}"
+nmap -F -sV "${OBJETIVO}" -oN "${ARCHIVO_SALIDA_TEMPORAL}"
 
 if [ $? -ne 0 ]; then
     echo "❌ Error al ejecutar nmap. Verifica la instalación de nmap o el objetivo."
@@ -44,7 +64,7 @@ DATOS_NMAP=$(cat "${ARCHIVO_SALIDA_TEMPORAL}")
 echo " "
 echo "🤖 Enviando datos a Gemini para análisis..."
 
-PROMPT="Eres un analista de seguridad de infraestructura que genera reportes ejecutivos e intuitivos. Analiza los siguientes resultados de escaneo de puertos Nmap para el objetivo ${OBJETIVO}. Tu respuesta debe ser una lista de chequeo concisa. Para cada puerto ABIERTO, indica: 1) Su estado (RIESGO ALTO, RIESGO BAJO, OK). 2) El servicio detectado. 3) Una recomendación de acción de una línea (Ej: 'Bloquear en firewall', 'Actualizar servicio'). Si no hay puertos abiertos, indica solo el estado OK y la recomendación de una línea de monitoreo. La respuesta DEBE empezar con el encabezado # CHECKLIST DE PUERTOS. Responde únicamente con el reporte formateado de lista concisa en lenguaje natural y humanizado:"
+PROMPT="Eres un analista de seguridad de infraestructura que genera reportes ejecutivos e intuitivos. Analiza los siguientes resultados de escaneo de puertos Nmap para el objetivo ${OBJETIVO}. Tu respuesta debe ser una lista de chequeo concisa. Para cada puerto ABIERTO, indica: 1) Su estado (RIESGO ALTO, RIESGO BAJO, OK). 2) El servicio detectado. 3) Una recomendación de acción de una línea (Ej: 'Bloquear en firewall', 'Actualizar servicio'). Si no hay puertos abiertos, indica solo el estado OK y la recomendación de una línea de monitoreo. La respuesta DEBE empezar con el encabezado # CHECKLIST DE PUERTOS. Responde únicamente con el reporte formateado de lista concisa en lenguaje natural y humanizado, adicionalmente busca en tu conocimiento si hay vulnerabilidades conocidas (CVE) relacionadas con la versión del software y enlistalas en orden de criticidad con sus posibles soluciones, de manera corta y concisa:"
 
 # 3.1 Ejecutar CURL y guardar la respuesta JSON en una variable
 JSON_RESPONSE=$(curl -s -X POST \

@@ -26,6 +26,26 @@ GCLOUD_BIN="/home/unknown_ronin/google-cloud-sdk/bin/gcloud"
 PROJECT_ID="$(${GCLOUD_BIN} config get-value project)"
 REGION="us-central1"
 
+# =================================================================
+# BLOQUE DE VERIFICACIÓN DE CREDENCIALES (FUERZA LA RENOVACIÓN)
+# =================================================================
+if ! "${GCLOUD_BIN}" auth print-access-token > /dev/null 2>&1; then
+    echo " "
+    echo "🚨 ERROR: Las credenciales de Google Cloud han expirado o faltan."
+    echo "🚨 Acción: Forzando la re-autenticación (Esto abrirá un navegador)."
+    
+    # Intenta forzar una nueva autenticación de credenciales de aplicación
+    "${GCLOUD_BIN}" auth application-default login --scopes=https://www.googleapis.com/auth/cloud-platform
+    
+    if [ $? -ne 0 ]; then
+        echo "❌ ERROR FATAL: Falló la re-autenticación. Revise su conexión o permisos."
+        exit 1
+    fi
+    echo "✅ Autenticación renovada con éxito."
+    echo " "
+fi
+# =================================================================
+
 echo " "
 echo "--- 🔎 Ejecutando prueba de 'PRE_ANALISIS_ENCABEZADOS' en: ${URL_OBJETIVO} ---"
 

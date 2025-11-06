@@ -58,6 +58,21 @@ Una vez que todas las dependencias y la autenticación estén configuradas, ejec
  
 ./scripts/ejecutar_todo.sh [https://www.google.com](https://www.google.com) 127.0.0.1
 
+## 📝 Uso de la Herramienta (Interactivo)
+
+El script maestro `ejecutar_todo.sh` ahora proporciona un menú dinámico y solicita los parámetros necesarios para cada prueba.
+
+1.  **Ejecute el script maestro:**
+    ```bash
+    ./scripts/ejecutar_todo.sh
+    ```
+2.  **Seleccione la prueba:** La terminal mostrará los scripts disponibles (tanto DAST como SAST) para que seleccione un número.
+3.  **Ingrese el parámetro (solo DAST):**
+    * Si selecciona una prueba DAST (Encabezados o Puertos), se le pedirá la **URL** o **IP/Dominio** objetivo.
+    * Si selecciona una prueba SAST (SQLI, XSS, CSRF), el script se ejecutará directamente sin necesidad de parámetros, ya que utiliza el código de riesgo interno para la simulación.
+4.  **Resultados:** El reporte (`.txt`) humanizado y conciso se guardará en la carpeta `resultados/`.
+
+
 
 
 
@@ -72,5 +87,16 @@ REPORTE_ENCABEZADOS_YYYYMMDD_HHMMSS.txt
 REPORTE_PUERTOS_YYYYMMDD_HHMMSS.txt
 
 Estos archivos contienen el análisis completo en formato de lista de chequeo concisa y en lenguaje natural.
+
+
+
+Bulldozer/
+├── index.sh                     <-- Nuevo archivo de ejecución principal
+├── archivosEstaticos/           <-- Archivos de código para auditoría
+├── scripts/
+│   ├── PruebasExternas_DAST/    <-- Contiene pre_analisis_archivos.sh, _encabezados.sh, _puertos.sh
+│   └── PruebasEstaticas_SAST/   <-- Contiene sast_simulacion_csrf.sh, _sqli.sh, _xss.sh
+├── resultados/
+└── LEEME.md
 
 
